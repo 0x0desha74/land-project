@@ -1,61 +1,123 @@
-const mongooss = require('mongoose');
 const express = require('express');
 const Order = require('../orders/order.model');
 const Land = require('../land/land.model');
+const { verifyAdminToken } = require('../middleware/verifyAdminToken');
+
 const router = express.Router();
 
+// Error response helper
+const errorResponse = (res, status, message) => {
+  return res.status(status).json({ message });
+};
 
+// Success response helper
+const successResponse = (res, status, message, data = null) => {
+  const response = { message };
+  if (data) response.data = data;
+  return res.status(status).json(response);
+};
 
-router.get("/", async (req, res) => {
-    try {
-        
-        const totalOrders = await Order.countDocuments();
+// Get dashboard statistics
+const getDashboardStats = async (req, res) => {
+  try {
+    // Get total orders and sales
+    const [totalOrders, totalSales] = await Promise.all([
+      Order.countDocuments(),
+      Order.aggregate([
+        {
+          $group: {
+            _id: null,
+            totalSales: { $sum: '$totalPrice' },
+            averageOrderValue: { $avg: '$totalPrice' }
+          }
+        }
+      ])
+    ]);
 
-        
-        const totalSales = await Order.aggregate([
-            {
-                $group: {
-                    _id: null,
-                    totalSales: { $sum: "$totalPrice" },
-                }
-            }
-        ]);
+    // Get land statistics
+    const [totalLands, trendingLands] = await Promise.all([
+      Land.countDocuments(),
+      Land.countDocuments({ trending: true })
+    ]);
 
-        
-        const trendingLandsCount = await Land.aggregate([
-            { $match: { trending: true } }, 
-            { $count: "trendingLandsCount" } 
-        ]);
-        
-        
-        const trendingLands = trendingLandsCount.length > 0 ? trendingLandsCount[0].trendingLandsCount : 0;
+    // Get monthly sales data
+    const monthlySales = await Order.aggregate([
+      {
+        $group: {
+          _id: { $dateToString: { format: '%Y-%m', date: '$createdAt' } },
+          totalSales: { $sum: '$totalPrice' },
+          totalOrders: { $sum: 1 },
+          averageOrderValue: { $avg: '$totalPrice' }
+        }
+      },
+      { $sort: { _id: 1 } }
+    ]);
 
-        
-        const totalLands = await Land.countDocuments();
+    // Get category distribution
+    const categoryDistribution = await Land.aggregate([
+      {
+        $group: {
+          _id: '$category',
+          count: { $sum: 1 }
+        }
+      }
+    ]);
 
-        
-        const monthlySales = await Order.aggregate([
-            {
-                $group: {
-                    _id: { $dateToString: { format: "%Y-%m", date: "$createdAt" } }, 
-                    totalSales: { $sum: "$totalPrice" },  
-                    totalOrders: { $sum: 1 }  
-                }
-            },
-            { $sort: { _id: 1 } }
-        ]);
+    // Get recent orders
+    const recentOrders = await Order.find()
+      .sort({ createdAt: -1 })
+      .limit(5)
+      .populate('productIds')
+      .lean();
 
+    return successResponse(res, 200, 'Dashboard statistics retrieved successfully', {
+      overview: {
+        totalOrders,
+        totalSales: totalSales[0]?.totalSales || 0,
+        averageOrderValue: totalSales[0]?.averageOrderValue || 0,
+        totalLands,
+        trendingLands
+      },
+      monthlySales,
+      categoryDistribution,
+      recentOrders
+    });
+  } catch (error) {
+    console.error('Error fetching dashboard statistics:', error);
+    return errorResponse(res, 500, 'Failed to fetch dashboard statistics');
+  }
+};
 
-        res.status(200).json({  totalOrders,
-            totalSales: totalSales[0]?.totalSales || 0,
-            trendingLands,
-            totalLands,
-            monthlySales, });
-      
-    } catch (error) {
-        console.error("Error fetching admin stats:", error);
-        res.status(500).json({ message: "Failed to fetch admin stats" });
-    }
-})
+// Get sales analytics
+const getSalesAnalytics = async (req, res) => {
+  try {
+    const { period = 'monthly' } = req.query;
+    const format = period === 'monthly' ? '%Y-%m' : '%Y-%m-%d';
+
+    const salesAnalytics = await Order.aggregate([
+      {
+        $group: {
+          _id: { $dateToString: { format, date: '$createdAt' } },
+          totalSales: { $sum: '$totalPrice' },
+          totalOrders: { $sum: 1 },
+          averageOrderValue: { $avg: '$totalPrice' }
+        }
+      },
+      { $sort: { _id: 1 } }
+    ]);
+
+    return successResponse(res, 200, 'Sales analytics retrieved successfully', {
+      period,
+      analytics: salesAnalytics
+    });
+  } catch (error) {
+    console.error('Error fetching sales analytics:', error);
+    return errorResponse(res, 500, 'Failed to fetch sales analytics');
+  }
+};
+
+// Routes
+router.get('/', verifyAdminToken, getDashboardStats);
+router.get('/sales', verifyAdminToken, getSalesAnalytics);
 
 module.exports = router;
