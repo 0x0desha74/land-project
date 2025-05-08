@@ -10,11 +10,11 @@ const { verifyAdminToken } = require('../middleware/verifyAdminToken');
 
 const router = express.Router();
 
-// Public routes
+// Anyone can use
 router.post('/', createOrder);
 router.get('/email/:email', getOrdersByEmail);
 
-// Admin routes
+// Only admin can use
 router.get('/all', verifyAdminToken, getAllOrders);
 router.put('/status/:id', verifyAdminToken, updateOrderStatus);
 router.get('/stats', verifyAdminToken, getOrderStats);

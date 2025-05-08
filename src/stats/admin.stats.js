@@ -5,22 +5,22 @@ const { verifyAdminToken } = require('../middleware/verifyAdminToken');
 
 const router = express.Router();
 
-// Error response helper
+// Send error message
 const errorResponse = (res, status, message) => {
   return res.status(status).json({ message });
 };
 
-// Success response helper
+// Send success message
 const successResponse = (res, status, message, data = null) => {
   const response = { message };
   if (data) response.data = data;
   return res.status(status).json(response);
 };
 
-// Get dashboard statistics
+// Get main dashboard info
 const getDashboardStats = async (req, res) => {
   try {
-    // Get total orders and sales
+    // Get sales info
     const [totalOrders, totalSales] = await Promise.all([
       Order.countDocuments(),
       Order.aggregate([
@@ -34,13 +34,13 @@ const getDashboardStats = async (req, res) => {
       ])
     ]);
 
-    // Get land statistics
+    // Get land info
     const [totalLands, trendingLands] = await Promise.all([
       Land.countDocuments(),
       Land.countDocuments({ trending: true })
     ]);
 
-    // Get monthly sales data
+    // Get monthly sales
     const monthlySales = await Order.aggregate([
       {
         $group: {
@@ -53,7 +53,7 @@ const getDashboardStats = async (req, res) => {
       { $sort: { _id: 1 } }
     ]);
 
-    // Get category distribution
+    // Get land categories
     const categoryDistribution = await Land.aggregate([
       {
         $group: {
@@ -63,7 +63,7 @@ const getDashboardStats = async (req, res) => {
       }
     ]);
 
-    // Get recent orders
+    // Get latest orders
     const recentOrders = await Order.find()
       .sort({ createdAt: -1 })
       .limit(5)
@@ -88,7 +88,7 @@ const getDashboardStats = async (req, res) => {
   }
 };
 
-// Get sales analytics
+// Get sales info by time
 const getSalesAnalytics = async (req, res) => {
   try {
     const { period = 'monthly' } = req.query;

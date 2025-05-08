@@ -1,16 +1,16 @@
-// src/auth/auth.route.js (أو ما يشابه)
+// User routes
 const express = require("express");
-const { adminLogin, createUser, getUserProfile } = require('./user.controller');
+const { createUser, loginUser, getUserProfile, updateUser } = require('./user.controller');
 const { verifyToken } = require('../middleware/verifyToken');
 
 const router = express.Router();
-const JWT_SECRET = process.env.JWT_SECRET_KEY;
 
-// Auth routes
-router.post("/admin", adminLogin);
+// Public routes
 router.post("/register", createUser);
+router.post("/login", loginUser);
 
-// Protected routes
+// Private routes
 router.get("/profile", verifyToken, getUserProfile);
+router.put("/profile", verifyToken, updateUser);
 
 module.exports = router;

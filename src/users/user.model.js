@@ -1,10 +1,7 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcrypt');
 
-/**
- * User Schema
- * Represents a user in the system with authentication and authorization
- */
+// User data structure
 const userSchema = new mongoose.Schema({
   username: {
     type: String,
@@ -39,11 +36,11 @@ const userSchema = new mongoose.Schema({
   toObject: { virtuals: true }
 });
 
-// Index for better query performance
+// Speed up searches
 userSchema.index({ username: 1 });
 userSchema.index({ role: 1 });
 
-// Hash password before saving
+// Hide password before saving
 userSchema.pre('save', async function(next) {
   if (!this.isModified('password')) return next();
   
@@ -56,7 +53,7 @@ userSchema.pre('save', async function(next) {
   }
 });
 
-// Method to compare password
+// Check if password matches
 userSchema.methods.comparePassword = async function(candidatePassword) {
   try {
     return await bcrypt.compare(candidatePassword, this.password);
@@ -65,7 +62,7 @@ userSchema.methods.comparePassword = async function(candidatePassword) {
   }
 };
 
-// Method to update last login
+// Save login time
 userSchema.methods.updateLastLogin = async function() {
   this.lastLogin = new Date();
   return this.save();

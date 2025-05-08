@@ -1,18 +1,18 @@
 const Order = require('./order.model');
 
-// Error response helper
+// Send error message
 const errorResponse = (res, status, message) => {
   return res.status(status).json({ message });
 };
 
-// Success response helper
+// Send success message
 const successResponse = (res, status, message, data = null) => {
   const response = { message };
   if (data) response.data = data;
   return res.status(status).json(response);
 };
 
-// Create new order
+// Make new order
 const createOrder = async (req, res) => {
   try {
     const newOrder = new Order(req.body);
@@ -25,7 +25,7 @@ const createOrder = async (req, res) => {
   }
 };
 
-// Get orders by email
+// Get user orders
 const getOrdersByEmail = async (req, res) => {
   try {
     const { email } = req.params;
@@ -45,7 +45,7 @@ const getOrdersByEmail = async (req, res) => {
   }
 };
 
-// Get all orders (admin only)
+// Get all orders
 const getAllOrders = async (req, res) => {
   try {
     const orders = await Order.find()
@@ -60,7 +60,7 @@ const getAllOrders = async (req, res) => {
   }
 };
 
-// Update order status
+// Change order status
 const updateOrderStatus = async (req, res) => {
   try {
     const { id } = req.params;
@@ -79,7 +79,7 @@ const updateOrderStatus = async (req, res) => {
   }
 };
 
-// Get order statistics
+// Get order numbers
 const getOrderStats = async (req, res) => {
   try {
     const stats = await Order.aggregate([

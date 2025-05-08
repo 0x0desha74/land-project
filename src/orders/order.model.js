@@ -1,9 +1,6 @@
 const mongoose = require('mongoose');
 
-/**
- * Order Schema
- * Represents a customer order in the system
- */
+// Order data structure
 const orderSchema = new mongoose.Schema({
   name: {
     type: String,
@@ -80,12 +77,12 @@ const orderSchema = new mongoose.Schema({
   toObject: { virtuals: true }
 });
 
-// Indexes for better query performance
+// Speed up searches
 orderSchema.index({ email: 1 });
 orderSchema.index({ status: 1 });
 orderSchema.index({ createdAt: -1 });
 
-// Virtual for order summary
+// Quick order info
 orderSchema.virtual('orderSummary').get(function() {
   return {
     orderId: this._id,
@@ -96,13 +93,13 @@ orderSchema.virtual('orderSummary').get(function() {
   };
 });
 
-// Method to update order status
+// Change order status
 orderSchema.methods.updateStatus = async function(newStatus) {
   this.status = newStatus;
   return this.save();
 };
 
-// Method to update payment status
+// Change payment status
 orderSchema.methods.updatePaymentStatus = async function(newStatus) {
   this.paymentStatus = newStatus;
   return this.save();

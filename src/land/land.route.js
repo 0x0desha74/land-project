@@ -1,28 +1,22 @@
 const express = require('express');
 const { verifyAdminToken } = require('../middleware/verifyAdminToken');
 const {
-  postLand,
+  createLand,
   getAllLands,
-  getSingleLand,
-  UpdateLand,
-  deleteALand
+  getLandById,
+  updateLand,
+  deleteLand,
+  getTrendingLands
 } = require('./land.controller');
 
 const router = express.Router();
 
-// Land management routes
-router
-  .route('/')
-  .get(getAllLands)
-  .post(verifyAdminToken, postLand);
-
-router
-  .route('/:id')
-  .get(getSingleLand)
-  .delete(verifyAdminToken, deleteALand);
-
-router
-  .route('/edit/:id')
-  .put(verifyAdminToken, UpdateLand);
+// Land routes
+router.get('/', getAllLands);
+router.get('/trending', getTrendingLands);
+router.post('/', verifyAdminToken, createLand);
+router.get('/:id', getLandById);
+router.put('/:id', verifyAdminToken, updateLand);
+router.delete('/:id', verifyAdminToken, deleteLand);
 
 module.exports = router;

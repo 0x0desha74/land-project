@@ -1,9 +1,6 @@
 const mongoose = require('mongoose');
 
-/**
- * Land Schema
- * Represents a land property listing in the system
- */
+// Land data structure
 const landSchema = new mongoose.Schema({
   title: {
     type: String,
@@ -59,11 +56,11 @@ const landSchema = new mongoose.Schema({
   toObject: { virtuals: true }
 });
 
-// Index for better query performance
+// Speed up searches
 landSchema.index({ title: 'text', description: 'text' });
 landSchema.index({ category: 1, trending: 1 });
 
-// Virtual for price discount percentage
+// Get price discount
 landSchema.virtual('discountPercentage').get(function() {
   if (!this.oldPrice || !this.newPrice) return 0;
   return Math.round(((this.oldPrice - this.newPrice) / this.oldPrice) * 100);

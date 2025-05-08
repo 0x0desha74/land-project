@@ -1,31 +1,26 @@
 const jwt = require('jsonwebtoken');
 
-// Error response helper
+// Send error message
 const errorResponse = (res, status, message) => {
   return res.status(status).json({ message });
 };
 
-/**
- * Middleware to verify JWT token and admin role
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
- * @param {Function} next - Express next function
- */
+// Check if user is admin
 const verifyAdminToken = (req, res, next) => {
   try {
-    // Get token from Authorization header
+    // Get token from header
     const authHeader = req.headers.authorization;
     if (!authHeader) {
       return errorResponse(res, 401, 'Access denied. No token provided');
     }
 
-    // Verify token format
+    // Check token format
     const token = authHeader.split(' ')[1];
     if (!token) {
       return errorResponse(res, 401, 'Access denied. Invalid token format');
     }
 
-    // Verify token
+    // Check if token is valid
     jwt.verify(token, process.env.JWT_SECRET_KEY, (err, decoded) => {
       if (err) {
         if (err.name === 'TokenExpiredError') {
@@ -34,7 +29,7 @@ const verifyAdminToken = (req, res, next) => {
         return errorResponse(res, 403, 'Access denied. Invalid token');
       }
 
-      // Verify admin role
+      // Check if user is admin
       if (decoded.role !== 'admin') {
         return errorResponse(res, 403, 'Access denied. Admin privileges required');
       }
@@ -49,27 +44,22 @@ const verifyAdminToken = (req, res, next) => {
   }
 };
 
-/**
- * Middleware to verify JWT token (for any authenticated user)
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
- * @param {Function} next - Express next function
- */
+// Check if user is logged in
 const verifyToken = (req, res, next) => {
   try {
-    // Get token from Authorization header
+    // Get token from header
     const authHeader = req.headers.authorization;
     if (!authHeader) {
       return errorResponse(res, 401, 'Access denied. No token provided');
     }
 
-    // Verify token format
+    // Check token format
     const token = authHeader.split(' ')[1];
     if (!token) {
       return errorResponse(res, 401, 'Access denied. Invalid token format');
     }
 
-    // Verify token
+    // Check if token is valid
     jwt.verify(token, process.env.JWT_SECRET_KEY, (err, decoded) => {
       if (err) {
         if (err.name === 'TokenExpiredError') {
