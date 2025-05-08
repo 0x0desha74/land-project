@@ -1,22 +1,25 @@
 const express = require('express');
+const router = express.Router();
+const { verifyToken, verifyAdminToken } = require('../middleware/verifyToken');
 const {
   createOrder,
-  getOrdersByEmail,
   getAllOrders,
+  getOrderById,
   updateOrderStatus,
-  getOrderStats
+  deleteOrder,
+  getUserOrders
 } = require('./order.controller');
-const { verifyAdminToken } = require('../middleware/verifyAdminToken');
 
-const router = express.Router();
-
-// Anyone can use
+// Public routes
 router.post('/', createOrder);
-router.get('/email/:email', getOrdersByEmail);
 
-// Only admin can use
-router.get('/all', verifyAdminToken, getAllOrders);
-router.put('/status/:id', verifyAdminToken, updateOrderStatus);
-router.get('/stats', verifyAdminToken, getOrderStats);
+// Protected routes
+router.get('/user', verifyToken, getUserOrders);
+router.get('/:id', verifyToken, getOrderById);
+
+// Admin routes
+router.get('/', verifyAdminToken, getAllOrders);
+router.put('/:id/status', verifyAdminToken, updateOrderStatus);
+router.delete('/:id', verifyAdminToken, deleteOrder);
 
 module.exports = router;

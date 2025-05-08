@@ -1,35 +1,41 @@
 const User = require('./user.model');
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
 
-// Send error message
+// Error response helper
 const errorResponse = (res, status, message) => {
   return res.status(status).json({ message });
 };
 
-// Send success message
+// Success response helper
 const successResponse = (res, status, message, data = null) => {
   const response = { message };
   if (data) response.data = data;
   return res.status(status).json(response);
 };
 
-// Add new user
-const createUser = async (req, res) => {
+// Register new user
+const registerUser = async (req, res) => {
   try {
-    const { email } = req.body;
-    const existingUser = await User.findOne({ email });
+    const { email, password } = req.body;
+    const existingUser = await User.findOne({ where: { email } });
     
     if (existingUser) {
       return errorResponse(res, 400, 'Email already in use');
     }
 
-    const newUser = new User(req.body);
-    const savedUser = await newUser.save();
+    const newUser = await User.create({
+      ...req.body,
+      password // Password will be hashed by model hook
+    });
     
-    return successResponse(res, 201, 'User added successfully', savedUser);
+    const userData = newUser.toJSON();
+    delete userData.password;
+    
+    return successResponse(res, 201, 'User registered successfully', userData);
   } catch (error) {
-    console.error('Error adding user:', error);
-    return errorResponse(res, 500, 'Failed to add user');
+    console.error('Error registering user:', error);
+    return errorResponse(res, 500, 'Failed to register user');
   }
 };
 
@@ -37,7 +43,7 @@ const createUser = async (req, res) => {
 const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ where: { email } });
     
     if (!user) {
       return errorResponse(res, 404, 'User not found');
@@ -51,19 +57,17 @@ const loginUser = async (req, res) => {
     await user.updateLastLogin();
     
     const token = jwt.sign(
-      { id: user._id, role: user.role },
-      process.env.JWT_SECRET,
+      { id: user.id, role: user.role },
+      process.env.JWT_SECRET || 'your-secret-key',
       { expiresIn: '1d' }
     );
 
+    const userData = user.toJSON();
+    delete userData.password;
+
     return successResponse(res, 200, 'Login successful', {
       token,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role
-      }
+      user: userData
     });
   } catch (error) {
     console.error('Error logging in:', error);
@@ -71,13 +75,17 @@ const loginUser = async (req, res) => {
   }
 };
 
-// Get user info
+// Get user profile
 const getUserProfile = async (req, res) => {
   try {
-    const user = await User.findById(req.user.id).select('-password');
+    const user = await User.findByPk(req.user.id, {
+      attributes: { exclude: ['password'] }
+    });
+    
     if (!user) {
       return errorResponse(res, 404, 'User not found');
     }
+    
     return successResponse(res, 200, 'User profile retrieved successfully', user);
   } catch (error) {
     console.error('Error fetching user profile:', error);
@@ -85,29 +93,66 @@ const getUserProfile = async (req, res) => {
   }
 };
 
-// Update user info
-const updateUser = async (req, res) => {
+// Update user profile
+const updateUserProfile = async (req, res) => {
   try {
-    const updatedUser = await User.findByIdAndUpdate(
-      req.user.id,
-      req.body,
-      { new: true, runValidators: true }
-    ).select('-password');
+    const [updated] = await User.update(req.body, {
+      where: { id: req.user.id },
+      returning: true
+    });
     
-    if (!updatedUser) {
+    if (!updated) {
       return errorResponse(res, 404, 'User not found');
     }
     
-    return successResponse(res, 200, 'User updated successfully', updatedUser);
+    const updatedUser = await User.findByPk(req.user.id, {
+      attributes: { exclude: ['password'] }
+    });
+    
+    return successResponse(res, 200, 'User profile updated successfully', updatedUser);
   } catch (error) {
-    console.error('Error updating user:', error);
-    return errorResponse(res, 500, 'Failed to update user');
+    console.error('Error updating user profile:', error);
+    return errorResponse(res, 500, 'Failed to update user profile');
+  }
+};
+
+// Get all users (admin only)
+const getAllUsers = async (req, res) => {
+  try {
+    const users = await User.findAll({
+      attributes: { exclude: ['password'] }
+    });
+    return successResponse(res, 200, 'Users retrieved successfully', users);
+  } catch (error) {
+    console.error('Error fetching users:', error);
+    return errorResponse(res, 500, 'Failed to fetch users');
+  }
+};
+
+// Delete user (admin only)
+const deleteUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const deleted = await User.destroy({
+      where: { id }
+    });
+    
+    if (!deleted) {
+      return errorResponse(res, 404, 'User not found');
+    }
+    
+    return successResponse(res, 200, 'User deleted successfully');
+  } catch (error) {
+    console.error('Error deleting user:', error);
+    return errorResponse(res, 500, 'Failed to delete user');
   }
 };
 
 module.exports = {
-  createUser,
+  registerUser,
   loginUser,
   getUserProfile,
-  updateUser
+  updateUserProfile,
+  getAllUsers,
+  deleteUser
 }; 

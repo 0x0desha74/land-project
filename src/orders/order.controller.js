@@ -1,108 +1,137 @@
-const Order = require('./order.model');
+const { Order, Land } = require('../models');
 
-// Send error message
+// Error response helper
 const errorResponse = (res, status, message) => {
   return res.status(status).json({ message });
 };
 
-// Send success message
+// Success response helper
 const successResponse = (res, status, message, data = null) => {
   const response = { message };
   if (data) response.data = data;
   return res.status(status).json(response);
 };
 
-// Make new order
+// Create new order
 const createOrder = async (req, res) => {
   try {
-    const newOrder = new Order(req.body);
-    const savedOrder = await newOrder.save();
+    const { landIds, ...orderData } = req.body;
+    const order = await Order.create(orderData);
     
-    return successResponse(res, 201, 'Order created successfully', savedOrder);
+    if (landIds && landIds.length > 0) {
+      await order.setLands(landIds);
+    }
+    
+    const orderWithLands = await Order.findByPk(order.id, {
+      include: [{ model: Land }]
+    });
+    
+    return successResponse(res, 201, 'Order created successfully', orderWithLands);
   } catch (error) {
     console.error('Error creating order:', error);
     return errorResponse(res, 500, 'Failed to create order');
   }
 };
 
-// Get user orders
-const getOrdersByEmail = async (req, res) => {
+// Get all orders (admin only)
+const getAllOrders = async (req, res) => {
   try {
-    const { email } = req.params;
-    const orders = await Order.find({ email })
-      .sort({ createdAt: -1 })
-      .populate('productIds')
-      .lean();
-
-    if (!orders.length) {
-      return errorResponse(res, 404, 'No orders found for this email');
-    }
-
-    return successResponse(res, 200, 'Orders retrieved successfully', { orders });
+    const orders = await Order.findAll({
+      include: [{ model: Land }],
+      order: [['createdAt', 'DESC']]
+    });
+    return successResponse(res, 200, 'Orders retrieved successfully', orders);
   } catch (error) {
     console.error('Error fetching orders:', error);
     return errorResponse(res, 500, 'Failed to fetch orders');
   }
 };
 
-// Get all orders
-const getAllOrders = async (req, res) => {
+// Get order by ID
+const getOrderById = async (req, res) => {
   try {
-    const orders = await Order.find()
-      .sort({ createdAt: -1 })
-      .populate('productIds')
-      .lean();
-
-    return successResponse(res, 200, 'Orders retrieved successfully', { orders });
+    const { id } = req.params;
+    const order = await Order.findByPk(id, {
+      include: [{ model: Land }]
+    });
+    
+    if (!order) {
+      return errorResponse(res, 404, 'Order not found');
+    }
+    
+    return successResponse(res, 200, 'Order retrieved successfully', order);
   } catch (error) {
-    console.error('Error fetching all orders:', error);
-    return errorResponse(res, 500, 'Failed to fetch orders');
+    console.error('Error fetching order:', error);
+    return errorResponse(res, 500, 'Failed to fetch order');
   }
 };
 
-// Change order status
+// Update order status (admin only)
 const updateOrderStatus = async (req, res) => {
   try {
     const { id } = req.params;
     const { status } = req.body;
-
-    const order = await Order.findById(id);
-    if (!order) {
+    
+    const [updated] = await Order.update(
+      { status },
+      { where: { id } }
+    );
+    
+    if (!updated) {
       return errorResponse(res, 404, 'Order not found');
     }
-
-    await order.updateStatus(status);
-    return successResponse(res, 200, 'Order status updated successfully', order);
+    
+    const updatedOrder = await Order.findByPk(id, {
+      include: [{ model: Land }]
+    });
+    
+    return successResponse(res, 200, 'Order status updated successfully', updatedOrder);
   } catch (error) {
     console.error('Error updating order status:', error);
     return errorResponse(res, 500, 'Failed to update order status');
   }
 };
 
-// Get order numbers
-const getOrderStats = async (req, res) => {
+// Delete order (admin only)
+const deleteOrder = async (req, res) => {
   try {
-    const stats = await Order.aggregate([
-      {
-        $group: {
-          _id: '$status',
-          count: { $sum: 1 },
-          totalAmount: { $sum: '$totalPrice' }
-        }
-      }
-    ]);
-
-    return successResponse(res, 200, 'Order statistics retrieved successfully', { stats });
+    const { id } = req.params;
+    const deleted = await Order.destroy({
+      where: { id }
+    });
+    
+    if (!deleted) {
+      return errorResponse(res, 404, 'Order not found');
+    }
+    
+    return successResponse(res, 200, 'Order deleted successfully');
   } catch (error) {
-    console.error('Error fetching order statistics:', error);
-    return errorResponse(res, 500, 'Failed to fetch order statistics');
+    console.error('Error deleting order:', error);
+    return errorResponse(res, 500, 'Failed to delete order');
+  }
+};
+
+// Get user orders
+const getUserOrders = async (req, res) => {
+  try {
+    const orders = await Order.findAll({
+      where: { email: req.user.email },
+      include: [{ model: Land }],
+      order: [['createdAt', 'DESC']]
+    });
+    
+    return successResponse(res, 200, 'User orders retrieved successfully', orders);
+  } catch (error) {
+    console.error('Error fetching user orders:', error);
+    return errorResponse(res, 500, 'Failed to fetch user orders');
   }
 };
 
 module.exports = {
   createOrder,
-  getOrdersByEmail,
   getAllOrders,
+  getOrderById,
   updateOrderStatus,
-  getOrderStats
+  deleteOrder,
+  getUserOrders
 };

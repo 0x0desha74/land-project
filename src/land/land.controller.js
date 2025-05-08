@@ -1,4 +1,4 @@
-const Land = require("./land.model");
+const { Land } = require('../models');
 
 // Error response helper
 const errorResponse = (res, status, message) => {
@@ -13,89 +13,101 @@ const successResponse = (res, status, message, data = null) => {
 };
 
 // Create new land
-const postLand = async (req, res) => {
+const createLand = async (req, res) => {
   try {
-    const newLand = new Land(req.body);
-    const savedLand = await newLand.save();
-    return successResponse(res, 201, "Land posted successfully", savedLand);
+    const land = await Land.create(req.body);
+    return successResponse(res, 201, 'Land created successfully', land);
   } catch (error) {
-    console.error("Error creating land:", error);
-    return errorResponse(res, 500, "Failed to create land");
+    console.error('Error creating land:', error);
+    return errorResponse(res, 500, 'Failed to create land');
   }
 };
 
 // Get all lands
 const getAllLands = async (req, res) => {
   try {
-    const lands = await Land.find()
-      .sort({ createdAt: -1 })
-      .lean();
-    return successResponse(res, 200, "Lands retrieved successfully", { lands });
+    const lands = await Land.findAll();
+    return successResponse(res, 200, 'Lands retrieved successfully', lands);
   } catch (error) {
-    console.error("Error fetching lands:", error);
-    return errorResponse(res, 500, "Failed to fetch lands");
+    console.error('Error fetching lands:', error);
+    return errorResponse(res, 500, 'Failed to fetch lands');
   }
 };
 
-// Get single land
-const getSingleLand = async (req, res) => {
+// Get land by ID
+const getLandById = async (req, res) => {
   try {
     const { id } = req.params;
-    const land = await Land.findById(id).lean();
+    const land = await Land.findByPk(id);
     
     if (!land) {
-      return errorResponse(res, 404, "Land not found");
+      return errorResponse(res, 404, 'Land not found');
     }
     
-    return successResponse(res, 200, "Land retrieved successfully", { land });
+    return successResponse(res, 200, 'Land retrieved successfully', land);
   } catch (error) {
-    console.error("Error fetching land:", error);
-    return errorResponse(res, 500, "Failed to fetch land");
+    console.error('Error fetching land:', error);
+    return errorResponse(res, 500, 'Failed to fetch land');
   }
 };
 
 // Update land
-const UpdateLand = async (req, res) => {
+const updateLand = async (req, res) => {
   try {
     const { id } = req.params;
-    const updatedLand = await Land.findByIdAndUpdate(
-      id,
-      req.body,
-      { new: true, runValidators: true }
-    ).lean();
+    const [updated] = await Land.update(req.body, {
+      where: { id }
+    });
     
-    if (!updatedLand) {
-      return errorResponse(res, 404, "Land not found");
+    if (!updated) {
+      return errorResponse(res, 404, 'Land not found');
     }
     
-    return successResponse(res, 200, "Land updated successfully", updatedLand);
+    const updatedLand = await Land.findByPk(id);
+    return successResponse(res, 200, 'Land updated successfully', updatedLand);
   } catch (error) {
-    console.error("Error updating land:", error);
-    return errorResponse(res, 500, "Failed to update land");
+    console.error('Error updating land:', error);
+    return errorResponse(res, 500, 'Failed to update land');
   }
 };
 
 // Delete land
-const deleteALand = async (req, res) => {
+const deleteLand = async (req, res) => {
   try {
     const { id } = req.params;
-    const deletedLand = await Land.findByIdAndDelete(id).lean();
+    const deleted = await Land.destroy({
+      where: { id }
+    });
     
-    if (!deletedLand) {
-      return errorResponse(res, 404, "Land not found");
+    if (!deleted) {
+      return errorResponse(res, 404, 'Land not found');
     }
     
-    return successResponse(res, 200, "Land deleted successfully", deletedLand);
+    return successResponse(res, 200, 'Land deleted successfully');
   } catch (error) {
-    console.error("Error deleting land:", error);
-    return errorResponse(res, 500, "Failed to delete land");
+    console.error('Error deleting land:', error);
+    return errorResponse(res, 500, 'Failed to delete land');
+  }
+};
+
+// Get trending lands
+const getTrendingLands = async (req, res) => {
+  try {
+    const lands = await Land.findAll({
+      where: { trending: true }
+    });
+    return successResponse(res, 200, 'Trending lands retrieved successfully', lands);
+  } catch (error) {
+    console.error('Error fetching trending lands:', error);
+    return errorResponse(res, 500, 'Failed to fetch trending lands');
   }
 };
 
 module.exports = {
-  postLand,
+  createLand,
   getAllLands,
-  getSingleLand,
-  UpdateLand,
-  deleteALand
+  getLandById,
+  updateLand,
+  deleteLand,
+  getTrendingLands
 };

@@ -1,5 +1,6 @@
 const express = require('express');
-const { verifyAdminToken } = require('../middleware/verifyAdminToken');
+const router = express.Router();
+const { verifyToken, verifyAdminToken } = require('../middleware/verifyToken');
 const {
   createLand,
   getAllLands,
@@ -9,13 +10,13 @@ const {
   getTrendingLands
 } = require('./land.controller');
 
-const router = express.Router();
-
-// Land routes
+// Public routes
 router.get('/', getAllLands);
 router.get('/trending', getTrendingLands);
-router.post('/', verifyAdminToken, createLand);
 router.get('/:id', getLandById);
+
+// Protected routes (admin only)
+router.post('/', verifyAdminToken, createLand);
 router.put('/:id', verifyAdminToken, updateLand);
 router.delete('/:id', verifyAdminToken, deleteLand);
 

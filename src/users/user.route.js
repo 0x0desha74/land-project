@@ -1,16 +1,26 @@
 // User routes
 const express = require("express");
-const { createUser, loginUser, getUserProfile, updateUser } = require('./user.controller');
-const { verifyToken } = require('../middleware/verifyToken');
-
 const router = express.Router();
+const { verifyToken, verifyAdminToken } = require('../middleware/verifyToken');
+const {
+  registerUser,
+  loginUser,
+  getUserProfile,
+  updateUserProfile,
+  getAllUsers,
+  deleteUser
+} = require('./user.controller');
 
 // Public routes
-router.post("/register", createUser);
+router.post("/register", registerUser);
 router.post("/login", loginUser);
 
-// Private routes
+// Protected routes
 router.get("/profile", verifyToken, getUserProfile);
-router.put("/profile", verifyToken, updateUser);
+router.put("/profile", verifyToken, updateUserProfile);
+
+// Admin routes
+router.get("/", verifyAdminToken, getAllUsers);
+router.delete("/:id", verifyAdminToken, deleteUser);
 
 module.exports = router;

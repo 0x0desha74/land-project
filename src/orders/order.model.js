@@ -1,110 +1,78 @@
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
+const { sequelize } = require('../config/database');
 
 // Order data structure
-const orderSchema = new mongoose.Schema({
+const Order = sequelize.define('Order', {
+  id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true
+  },
   name: {
-    type: String,
-    required: [true, 'Name is required'],
-    trim: true,
-    minlength: [2, 'Name must be at least 2 characters long'],
-    maxlength: [100, 'Name cannot exceed 100 characters']
+    type: DataTypes.STRING(100),
+    allowNull: false,
+    validate: {
+      len: [2, 100]
+    }
   },
   email: {
-    type: String,
-    required: [true, 'Email is required'],
-    trim: true,
-    lowercase: true,
-    match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, 'Please enter a valid email address']
+    type: DataTypes.STRING,
+    allowNull: false,
+    validate: {
+      isEmail: true
+    }
   },
   address: {
-    city: {
-      type: String,
-      required: [true, 'City is required'],
-      trim: true
-    },
-    country: {
-      type: String,
-      required: [true, 'Country is required'],
-      trim: true
-    },
-    state: {
-      type: String,
-      required: [true, 'State is required'],
-      trim: true
-    },
-    zipcode: {
-      type: String,
-      required: [true, 'Zipcode is required'],
-      trim: true,
-      match: [/^\d{5}(-\d{4})?$/, 'Please enter a valid zipcode']
+    type: DataTypes.JSON,
+    allowNull: false,
+    validate: {
+      hasRequiredFields(value) {
+        if (!value.city || !value.country || !value.state || !value.zipcode) {
+          throw new Error('Address must include city, country, state, and zipcode');
+        }
+        if (!/^\d{5}(-\d{4})?$/.test(value.zipcode)) {
+          throw new Error('Invalid zipcode format');
+        }
+      }
     }
   },
   phone: {
-    type: String,
-    required: [true, 'Phone number is required'],
-    trim: true,
-    match: [/^\+?[\d\s-]{10,}$/, 'Please enter a valid phone number']
+    type: DataTypes.STRING,
+    allowNull: false,
+    validate: {
+      is: /^\+?[\d\s-]{10,}$/
+    }
   },
-  productIds: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Land',
-    required: [true, 'Product ID is required']
-  }],
   totalPrice: {
-    type: Number,
-    required: [true, 'Total price is required'],
-    min: [0, 'Total price cannot be negative']
+    type: DataTypes.DECIMAL(10, 2),
+    allowNull: false,
+    validate: {
+      min: 0
+    }
   },
   status: {
-    type: String,
-    enum: {
-      values: ['pending', 'processing', 'completed', 'cancelled'],
-      message: 'Status must be one of: pending, processing, completed, cancelled'
-    },
-    default: 'pending'
+    type: DataTypes.ENUM('pending', 'processing', 'completed', 'cancelled'),
+    allowNull: false,
+    defaultValue: 'pending'
   },
   paymentStatus: {
-    type: String,
-    enum: {
-      values: ['pending', 'paid', 'failed'],
-      message: 'Payment status must be one of: pending, paid, failed'
-    },
-    default: 'pending'
+    type: DataTypes.ENUM('pending', 'paid', 'failed'),
+    allowNull: false,
+    defaultValue: 'pending'
   }
 }, {
   timestamps: true,
-  toJSON: { virtuals: true },
-  toObject: { virtuals: true }
+  getterMethods: {
+    orderSummary() {
+      return {
+        orderId: this.id,
+        customerName: this.name,
+        totalItems: this.Lands ? this.Lands.length : 0,
+        totalPrice: this.totalPrice,
+        status: this.status
+      };
+    }
+  }
 });
-
-// Speed up searches
-orderSchema.index({ email: 1 });
-orderSchema.index({ status: 1 });
-orderSchema.index({ createdAt: -1 });
-
-// Quick order info
-orderSchema.virtual('orderSummary').get(function() {
-  return {
-    orderId: this._id,
-    customerName: this.name,
-    totalItems: this.productIds.length,
-    totalPrice: this.totalPrice,
-    status: this.status
-  };
-});
-
-// Change order status
-orderSchema.methods.updateStatus = async function(newStatus) {
-  this.status = newStatus;
-  return this.save();
-};
-
-// Change payment status
-orderSchema.methods.updatePaymentStatus = async function(newStatus) {
-  this.paymentStatus = newStatus;
-  return this.save();
-};
-
-const Order = mongoose.model('Order', orderSchema);
 
 module.exports = Order;

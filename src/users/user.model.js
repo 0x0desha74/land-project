@@ -1,73 +1,74 @@
-const mongoose = require('mongoose');
-const bcrypt = require('bcrypt');
+const { sequelize } = require('../config/database');
+const bcrypt = require('bcryptjs');
+const { DataTypes } = require('sequelize');
 
 // User data structure
-const userSchema = new mongoose.Schema({
+const User = sequelize.define('User', {
+  id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true
+  },
   username: {
-    type: String,
-    required: [true, 'Username is required'],
+    type: DataTypes.STRING,
+    allowNull: false,
     unique: true,
-    trim: true,
-    minlength: [3, 'Username must be at least 3 characters long'],
-    maxlength: [30, 'Username cannot exceed 30 characters'],
-    match: [/^[a-zA-Z0-9_]+$/, 'Username can only contain letters, numbers, and underscores']
+    validate: {
+      len: [3, 30],
+      is: /^[a-zA-Z0-9_]+$/
+    }
+  },
+  email: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    unique: true,
+    validate: {
+      isEmail: true
+    }
   },
   password: {
-    type: String,
-    required: [true, 'Password is required'],
-    minlength: [6, 'Password must be at least 6 characters long']
+    type: DataTypes.STRING,
+    allowNull: false,
+    validate: {
+      len: [6, 100]
+    }
   },
   role: {
-    type: String,
-    enum: {
-      values: ['admin', 'user'],
-      message: 'Role must be either admin or user'
-    },
-    required: [true, 'Role is required'],
-    default: 'user'
+    type: DataTypes.ENUM('user', 'admin', 'realtor', 'investor'),
+    allowNull: false,
+    defaultValue: 'user'
   },
   lastLogin: {
-    type: Date,
-    default: null
+    type: DataTypes.DATE,
+    allowNull: true
   }
 }, {
   timestamps: true,
-  toJSON: { virtuals: true },
-  toObject: { virtuals: true }
-});
-
-// Speed up searches
-userSchema.index({ username: 1 });
-userSchema.index({ role: 1 });
-
-// Hide password before saving
-userSchema.pre('save', async function(next) {
-  if (!this.isModified('password')) return next();
-  
-  try {
-    const salt = await bcrypt.genSalt(10);
-    this.password = await bcrypt.hash(this.password, salt);
-    next();
-  } catch (error) {
-    next(error);
+  hooks: {
+    beforeCreate: async (user) => {
+      if (user.password) {
+        const salt = await bcrypt.genSalt(10);
+        user.password = await bcrypt.hash(user.password, salt);
+      }
+    },
+    beforeUpdate: async (user) => {
+      if (user.changed('password')) {
+        const salt = await bcrypt.genSalt(10);
+        user.password = await bcrypt.hash(user.password, salt);
+      }
+    }
   }
 });
 
 // Check if password matches
-userSchema.methods.comparePassword = async function(candidatePassword) {
-  try {
-    return await bcrypt.compare(candidatePassword, this.password);
-  } catch (error) {
-    throw error;
-  }
+User.prototype.comparePassword = async function(candidatePassword) {
+  return bcrypt.compare(candidatePassword, this.password);
 };
 
 // Save login time
-userSchema.methods.updateLastLogin = async function() {
+User.prototype.updateLastLogin = async function() {
   this.lastLogin = new Date();
   return this.save();
 };
-
-const User = mongoose.model('User', userSchema);
 
 module.exports = User;

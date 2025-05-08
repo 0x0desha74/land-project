@@ -1,6 +1,6 @@
 const express = require('express');
-const mongoose = require('mongoose');
 const cors = require('cors');
+const { sequelize, initDatabase } = require('./src/config/database');
 require('dotenv').config();
 
 // Import routes
@@ -14,51 +14,46 @@ const app = express();
 const port = process.env.PORT || 5000;
 
 // Configure middleware
-const configureMiddleware = () => {
-  app.use(express.json());
-  app.use(cors({
-    origin: ['http://localhost:5173'],
-    credentials: true,
-  }));
-};
+app.use(express.json());
+app.use(cors({
+  origin: ['http://localhost:5173'],
+  credentials: true,
+}));
 
 // Configure routes
-const configureRoutes = () => {
-  app.use('/api/land', landRoutes);
-  app.use('/api/orders', orderRoutes);
-  app.use('/api/auth', userRoutes);
-  app.use('/api/admin', adminRoutes);
-  
-  // Health check endpoint
-  app.get('/', (req, res) => {
-    res.send('Hello from Backend!');
-  });
-};
+app.use('/api/land', landRoutes);
+app.use('/api/orders', orderRoutes);
+app.use('/api/auth', userRoutes);
+app.use('/api/admin', adminRoutes);
 
-// Database connection
-const connectDatabase = async () => {
+// Health check endpoint
+app.get('/', (req, res) => {
+  res.send('Hello from Backend!');
+});
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({ message: 'Something went wrong!' });
+});
+
+// Initialize application
+const initializeApp = async () => {
   try {
-    await mongoose.connect(process.env.DB_URL);
-    console.log('MongoDB connected successfully!');
+    // Initialize database
+    const dbInitialized = await initDatabase();
+    if (!dbInitialized) {
+      throw new Error('Failed to initialize database');
+    }
+    
+    // Start server
+    app.listen(port, () => {
+      console.log(`Server is running on port ${port}`);
+    });
   } catch (error) {
-    console.error('MongoDB connection error:', error);
+    console.error('Failed to initialize application:', error);
     process.exit(1);
   }
 };
 
-// Initialize application
-const initializeApp = async () => {
-  configureMiddleware();
-  configureRoutes();
-  await connectDatabase();
-  
-  app.listen(port, () => {
-    console.log(`Server is running on port ${port}`);
-  });
-};
-
-// Start the application
-initializeApp().catch(error => {
-  console.error('Failed to start application:', error);
-  process.exit(1);
-});
+initializeApp();
